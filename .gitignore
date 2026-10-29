@@ -1,0 +1,16 @@
+# 忽略编译生成的文件夹（里面全是 .o 和 .elf 等中间文件）
+Debug/
+Release/
+
+# 忽略编译生成的各种二进制文件
+*.elf
+*.bin
+*.hex
+*.o
+*.d
+*.map
+
+# IDE 配置文件
+.settings/
+.cproject
+.project
