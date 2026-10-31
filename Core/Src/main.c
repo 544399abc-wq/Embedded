@@ -48,15 +48,25 @@ UART_HandleTypeDef huart1;
 osThreadId_t Tasks_UARTHandle;
 const osThreadAttr_t Tasks_UART_attributes = {
   .name = "Tasks_UART",
-  .stack_size = 128 * 4,
+  .stack_size = 256 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for Task_HeartBeat */
 osThreadId_t Task_HeartBeatHandle;
 const osThreadAttr_t Task_HeartBeat_attributes = {
   .name = "Task_HeartBeat",
-  .stack_size = 128 * 4,
+  .stack_size = 256 * 4,
   .priority = (osPriority_t) osPriorityLow,
+};
+/* Definitions for MyQueue */
+osMessageQueueId_t MyQueueHandle;
+const osMessageQueueAttr_t MyQueue_attributes = {
+  .name = "MyQueue"
+};
+/* Definitions for UartMutex */
+osMutexId_t UartMutexHandle;
+const osMutexAttr_t UartMutex_attributes = {
+  .name = "UartMutex"
 };
 /* USER CODE BEGIN PV */
 
@@ -114,6 +124,9 @@ int main(void)
 
   /* Init scheduler */
   osKernelInitialize();
+  /* Create the mutex(es) */
+  /* creation of UartMutex */
+  UartMutexHandle = osMutexNew(&UartMutex_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -126,6 +139,10 @@ int main(void)
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
+
+  /* Create the queue(s) */
+  /* creation of MyQueue */
+  MyQueueHandle = osMessageQueueNew (10, sizeof(uint32_t), &MyQueue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -159,11 +176,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  char buffer[50];
-	  sprintf(buffer,"System Alive!Count:%d\r\n",count);
-	  HAL_UART_Transmit(&huart1,(uint8_t*)buffer,strlen(buffer),100);
-	  count++;
-	  HAL_Delay(1000);
+
   }
   /* USER CODE END 3 */
 }
@@ -282,11 +295,18 @@ void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
+	uint32_t data=0;
+	char mrg[50];
   for(;;)
   {
-	  char msg[]="Task_UART is working\r\n";
-	  HAL_UART_Transmit(&huart1,(uint8_t*)msg,sizeof(msg)-1,100);
-    osDelay(1000);
+
+	  osStatus_t status=osMessageQueueGet(MyQueueHandle,&data,NULL,osWaitForever);
+	  if(status==osOK){
+
+	  sprintf(mrg,"receive the data:%u\r\n",data);
+	  HAL_UART_Transmit(&huart1,(uint8_t*)mrg,strlen(mrg),100);
+	  }
+
   }
   /* USER CODE END 5 */
 }
@@ -302,13 +322,39 @@ void StartTask02(void *argument)
 {
   /* USER CODE BEGIN StartTask02 */
   /* Infinite loop */
+	uint32_t count=0;
+
   for(;;)
   {
-	  char msg[]="Task_HeartBeat is working!!\r\n";
-	  HAL_UART_Transmit(&huart1,(uint8_t*)msg,sizeof(msg)-1,100);
-    osDelay(1500);
+	  count++;
+	 osStatus_t status=osMessageQueuePut(MyQueueHandle,&count,0,100);
+	  if(status==osOK){}
+	  osDelay(1000);
   }
+
   /* USER CODE END StartTask02 */
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM6 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM6)
+  {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
 }
 
 /**
